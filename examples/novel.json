@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "scenes": [{"id": "arrival", "title": "Arrival"}, {"id": "letter", "title": "The Letter"}],
+  "characters": [{"id": "mara", "name": "Mara"}, {"id": "ivo", "name": "Ivo"}],
+  "revelations": [{"id": "false-gate", "summary": "The northern gate is a decoy", "introduced_scene": "arrival"}],
+  "knowledge": [{"character": "mara", "revelation": "false-gate", "scene": "arrival"}],
+  "uses": [{"character": "ivo", "revelation": "false-gate", "scene": "letter", "note": "Warns Mara away from the gate"}]
+}
