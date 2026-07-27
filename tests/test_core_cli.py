@@ -28,10 +28,10 @@ def test_matrix_and_issue():
     report = build_matrix(project())
     assert report["rows"][0]["characters"][0]["knows"]
     assert not report["rows"][0]["characters"][1]["knows"]
-    assert report["issue_count"] == 1
-    assert "before recorded knowledge" in render_markdown(report)
+    assert report["issue_count"] == 2
+    assert "premature-use" in render_markdown(report)
     early = build_matrix(project(), "s1")
-    assert early["issue_count"] == 0
+    assert early["issue_count"] == 1
 
 
 def test_validation(tmp_path):
@@ -61,7 +61,7 @@ def test_cli_json(tmp_path, capsys):
     path = tmp_path / "project.json"
     path.write_text(json.dumps(project()), encoding="utf-8")
     assert main([str(path), "--format", "json"]) == 0
-    assert json.loads(capsys.readouterr().out)["issue_count"] == 1
+    assert json.loads(capsys.readouterr().out)["issue_count"] == 2
 
 
 def test_earliest_knowledge_and_future_revelation_visibility():
@@ -100,3 +100,21 @@ def test_cli_safe_output(tmp_path):
     output = tmp_path / "report.md"
     assert main([str(path), "--output", str(output)]) == 0
     assert main([str(path), "--output", str(output)]) == 2
+
+
+def test_states_corrections_and_comparison():
+    data = project()
+    data["knowledge"] = [
+        {"character": "mara", "revelation": "gate", "scene": "s1", "state": "false-belief"},
+        {
+            "character": "mara",
+            "revelation": "gate",
+            "scene": "s2",
+            "state": "corrected",
+            "evidence": "letter",
+        },
+    ]
+    report = build_matrix(data, "s2", "s1")
+    assert report["rows"][0]["characters"][0]["state"] == "corrected"
+    assert report["changes"][0]["from"] == "false-belief"
+    assert report["character_summaries"]["mara"][0]["state"] == "corrected"
