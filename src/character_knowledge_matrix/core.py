@@ -122,7 +122,7 @@ def build_matrix(
         current = state_at(
             (usage["character"], usage["revelation"]), scene_ids.index(usage["scene"])
         )
-        if current is None or current["state"] in {"revoked", "false-belief"}:
+        if current is None or current["state"] not in {"confirmed", "corrected"}:
             issue_type = (
                 "contradictory-belief"
                 if current and current["state"] == "false-belief"

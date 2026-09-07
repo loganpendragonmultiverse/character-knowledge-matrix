@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "character-knowledge-matrix"
-version = "1.1.0"
+version = "1.2.0"
 description = "Map revelations against characters and scenes to review fictional knowledge continuity."
 readme = "README.md"
 requires-python = ">=3.10"

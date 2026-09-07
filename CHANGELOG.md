@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0 - 2026-09-07
+
+- Add an interactive character-by-scene evidence grid, explicit knowledge-source relationships and alternate scene-order comparisons.
+- Added regression coverage for the audited behavior and invalid inputs.
+
 ## 1.1.0 - 2026-07-27
 
 - Added confirmed, inferred, suspected, false-belief, corrected, and revoked knowledge states.
