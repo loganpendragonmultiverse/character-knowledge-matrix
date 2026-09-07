@@ -5,7 +5,8 @@ import json
 import sys
 from pathlib import Path
 
-from .core import build_matrix, load_project, render_markdown
+from .core import load_project, render_markdown
+from .review import build_review, render_html
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -15,14 +16,28 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("input", type=Path)
     parser.add_argument("--through")
     parser.add_argument("--compare-from")
-    parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    parser.add_argument("--format", choices=("markdown", "json", "html"), default="markdown")
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--alternate-order",
+        type=Path,
+        help="JSON array of all scene IDs; compares full-story order",
+    )
     args = parser.parse_args(argv)
     try:
-        report = build_matrix(load_project(args.input), args.through, args.compare_from)
+        report = build_review(
+            load_project(args.input),
+            args.through,
+            args.compare_from,
+            json.loads(args.alternate_order.read_text(encoding="utf-8"))
+            if args.alternate_order
+            else None,
+        )
         rendered = (
             json.dumps(report, indent=2, ensure_ascii=False) + "\n"
             if args.format == "json"
+            else render_html(report)
+            if args.format == "html"
             else render_markdown(report)
         )
         if args.output:
