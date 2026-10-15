@@ -49,7 +49,7 @@ def build_review(
             continue
         source = item.get("source", {})
         if source.get("kind") == "told":
-            current = build_matrix(data, item["scene"])
+            current = build_matrix(data, item["scene"], before_order=item.get("event_order"))
             states = [
                 cell["state"]
                 for row in current["rows"]
@@ -64,7 +64,7 @@ def build_review(
                         "scene": item["scene"],
                         "character": item["character"],
                         "revelation": item["revelation"],
-                        "reason": "Telling character has no confirmed record by this scene; review author intent",
+                        "reason": "Telling character has no confirmed record by this event; review author intent",
                     }
                 )
     report["source_issues"] = source_issues
