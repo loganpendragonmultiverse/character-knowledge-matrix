@@ -115,3 +115,12 @@ def test_cutoffs_alternate_orders_and_cli(tmp_path, capsys):
     assert main([str(path), "--through", "learn", "--format", "json"]) == 0
     assert "FUTURE-CANARY" not in capsys.readouterr().out
     assert path.read_bytes() == source_bytes
+
+
+def test_html_explains_optional_event_order_without_denying_timing():
+    for data in (sample(), ordered()):
+        html = render_html(build_review(data))
+        assert "Unordered scenes use end-of-scene knowledge states." in html
+        assert "In explicitly ordered scenes" in html
+        assert "before their event_order" in html
+        assert "Same-scene records have no finer event timing." not in html
