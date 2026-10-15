@@ -20,6 +20,26 @@ def _id_map(items: Any, label: str) -> dict[str, dict[str, Any]]:
     return result
 
 
+def validate_event_order(data: dict[str, Any]) -> None:
+    by_scene: dict[str, list[dict[str, Any]]] = {}
+    for label in ("knowledge", "uses"):
+        for record in data.get(label, []):
+            by_scene.setdefault(record["scene"], []).append(record)
+    for records in by_scene.values():
+        if not any("event_order" in record for record in records):
+            continue
+        orders = []
+        for record in records:
+            order = record.get("event_order")
+            if type(order) is not int or order < 1:
+                raise ValueError(
+                    "ordered scenes require a positive integer event_order on every knowledge/use record"
+                )
+            orders.append(order)
+        if len(orders) != len(set(orders)):
+            raise ValueError("event_order must be unique across knowledge and uses in a scene")
+
+
 def load_project(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict) or data.get("version") != 1:
@@ -48,23 +68,37 @@ def load_project(path: Path) -> dict[str, Any]:
                 raise ValueError(f"{label} record has an unknown character, revelation, or scene")
             if label == "knowledge" and record.get("state", "confirmed") not in STATES:
                 raise ValueError("knowledge record has an unsupported state")
+    validate_event_order(data)
     return data
 
 
 def build_matrix(
-    data: dict[str, Any], through: str | None = None, compare_from: str | None = None
+    data: dict[str, Any],
+    through: str | None = None,
+    compare_from: str | None = None,
+    *,
+    before_order: int | None = None,
 ) -> dict[str, Any]:
+    validate_event_order(data)
     scene_ids = [item["id"] for item in data["scenes"]]
     if through is not None and through not in scene_ids:
         raise ValueError(f"unknown scene: {through}")
     if compare_from is not None and compare_from not in scene_ids:
         raise ValueError(f"unknown scene: {compare_from}")
     boundary = scene_ids.index(through) if through else len(scene_ids) - 1
+    if compare_from is not None and scene_ids.index(compare_from) > boundary:
+        raise ValueError("comparison start must not follow through scene")
     visible = set(scene_ids[: boundary + 1])
     history: dict[tuple[str, str], list[dict[str, Any]]] = {}
     issues = []
     for record in data.get("knowledge", []):
         if record["scene"] not in visible:
+            continue
+        if (
+            before_order is not None
+            and scene_ids.index(record["scene"]) == boundary
+            and record.get("event_order", 0) >= before_order
+        ):
             continue
         entry = {
             **record,
@@ -81,10 +115,20 @@ def build_matrix(
             )
         history.setdefault((entry["character"], entry["revelation"]), []).append(entry)
     for values in history.values():
-        values.sort(key=lambda x: scene_ids.index(x["scene"]))
+        values.sort(key=lambda x: (scene_ids.index(x["scene"]), x.get("event_order", 0)))
 
-    def state_at(key: tuple[str, str], index: int) -> dict[str, Any] | None:
-        values = [x for x in history.get(key, []) if scene_ids.index(x["scene"]) <= index]
+    def state_at(
+        key: tuple[str, str], index: int, order: int | None = None
+    ) -> dict[str, Any] | None:
+        values = [
+            x
+            for x in history.get(key, [])
+            if scene_ids.index(x["scene"]) < index
+            or (
+                scene_ids.index(x["scene"]) == index
+                and (order is None or x.get("event_order", 0) < order)
+            )
+        ]
         return values[-1] if values else None
 
     rows = []
@@ -120,7 +164,9 @@ def build_matrix(
         if usage["scene"] not in visible:
             continue
         current = state_at(
-            (usage["character"], usage["revelation"]), scene_ids.index(usage["scene"])
+            (usage["character"], usage["revelation"]),
+            scene_ids.index(usage["scene"]),
+            usage.get("event_order"),
         )
         if current is None or current["state"] not in {"confirmed", "corrected"}:
             issue_type = (
@@ -138,7 +184,14 @@ def build_matrix(
     changes = []
     if compare_from is not None:
         start = scene_ids.index(compare_from)
-        for key in {(c["id"], r["id"]) for c in data["characters"] for r in data["revelations"]}:
+        for key in sorted(
+            {
+                (c["id"], r["id"])
+                for c in data["characters"]
+                for r in data["revelations"]
+                if r["introduced_scene"] in visible
+            }
+        ):
             before, after = state_at(key, start), state_at(key, boundary)
             old, new = (
                 before["state"] if before else "unrecorded",

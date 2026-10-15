@@ -49,7 +49,7 @@ def build_review(
             continue
         source = item.get("source", {})
         if source.get("kind") == "told":
-            current = build_matrix(data, item["scene"])
+            current = build_matrix(data, item["scene"], before_order=item.get("event_order"))
             states = [
                 cell["state"]
                 for row in current["rows"]
@@ -64,7 +64,7 @@ def build_review(
                         "scene": item["scene"],
                         "character": item["character"],
                         "revelation": item["revelation"],
-                        "reason": "Telling character has no confirmed record by this scene; review author intent",
+                        "reason": "Telling character has no confirmed record by this event; review author intent",
                     }
                 )
     report["source_issues"] = source_issues
@@ -177,7 +177,7 @@ def render_html(report: dict[str, Any]) -> str:
         else ""
     )
     return (
-        '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Knowledge scene review</title><style>body{font:17px system-ui;background:#111c2a;color:#f1f5f9;max-width:1200px;margin:auto;padding:22px;line-height:1.6}a{color:#94deff}input{font:inherit;padding:10px;max-width:90%}.scroll{overflow:auto}table{border-collapse:collapse;width:100%}td,th{border:1px solid #547080;padding:14px;min-width:140px;text-align:left}li{margin:16px 0;overflow-wrap:anywhere}:target{outline:2px solid #ffd173}h1{font-size:2rem}@media(max-width:600px){body{padding:12px}}</style><h1>Character knowledge by scene</h1><p>Author-supplied knowledge and evidence. Warnings are review prompts, not inferred narrative errors. Same-scene records have no finer event timing.</p><label>Filter characters <input id="filter" type="search"></label><div class="scroll"><table><thead><tr><th>Character</th>'
+        '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Knowledge scene review</title><style>body{font:17px system-ui;background:#111c2a;color:#f1f5f9;max-width:1200px;margin:auto;padding:22px;line-height:1.6}a{color:#94deff}input{font:inherit;padding:10px;max-width:90%}.scroll{overflow:auto}table{border-collapse:collapse;width:100%}td,th{border:1px solid #547080;padding:14px;min-width:140px;text-align:left}li{margin:16px 0;overflow-wrap:anywhere}:target{outline:2px solid #ffd173}h1{font-size:2rem}@media(max-width:600px){body{padding:12px}}</style><h1>Character knowledge by scene</h1><p>Author-supplied knowledge and evidence. Warnings are review prompts, not inferred narrative errors. Unordered scenes use end-of-scene knowledge states. In explicitly ordered scenes, uses and telling sources see only knowledge events before their event_order.</p><label>Filter characters <input id="filter" type="search"></label><div class="scroll"><table><thead><tr><th>Character</th>'
         + headers
         + "</tr></thead><tbody>"
         + "".join(rows)

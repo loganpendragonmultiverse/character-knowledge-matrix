@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0 - 2026-10-15
+
+- Explain unordered and explicitly ordered scene timing accurately in HTML reports.
+
+- Support validated explicit intra-scene order across knowledge events and uses.
+- Evaluate use and telling-character warnings at the supplied event position.
+- Preserve unordered scene semantics and cutoff behavior; reject reversed scene comparisons and make change ordering deterministic.
+
 ## 1.2.0 - 2026-09-07
 
 - Add an interactive character-by-scene evidence grid, explicit knowledge-source relationships and alternate scene-order comparisons.
