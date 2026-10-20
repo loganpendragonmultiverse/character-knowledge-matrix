@@ -5,7 +5,7 @@ import json
 from html import escape
 from typing import Any
 
-from .core import build_matrix
+from .core import build_matrix, validate_project
 
 
 def validate_sources(data: dict[str, Any]) -> None:
@@ -14,17 +14,24 @@ def validate_sources(data: dict[str, Any]) -> None:
         source = item.get("source")
         if source is None:
             continue
-        if not isinstance(source, dict) or source.get("kind") not in {
-            "witnessed",
-            "told",
-            "document",
-            "inferred",
-        }:
+        if (
+            not isinstance(source, dict)
+            or not isinstance(source.get("kind"), str)
+            or source.get("kind")
+            not in {
+                "witnessed",
+                "told",
+                "document",
+                "inferred",
+            }
+        ):
             raise ValueError("knowledge source requires kind witnessed/told/document/inferred")
         if not isinstance(source.get("evidence"), str) or not source["evidence"].strip():
             raise ValueError("knowledge source requires evidence text")
         if source["kind"] == "told" and (
-            source.get("character") not in characters or source["character"] == item["character"]
+            not isinstance(source.get("character"), str)
+            or source.get("character") not in characters
+            or source["character"] == item["character"]
         ):
             raise ValueError("told source requires a different known character")
 
@@ -35,19 +42,21 @@ def build_review(
     compare_from: str | None = None,
     alternate: Any = None,
 ) -> dict[str, Any]:
+    validate_project(data)
     validate_sources(data)
     ids = [item["id"] for item in data["scenes"]]
     report = build_matrix(data, through, compare_from)
     visible = ids[: ids.index(report["through"]) + 1]
+    visible_revelations = {r["id"] for r in data["revelations"] if r["introduced_scene"] in visible}
     snapshots = []
     source_issues = []
     for scene in visible:
         snapshot = build_matrix(data, scene)
         snapshots.append({"scene": scene, "rows": snapshot["rows"], "issues": snapshot["issues"]})
     for item in data.get("knowledge", []):
-        if item["scene"] not in visible:
+        if item["scene"] not in visible or item["revelation"] not in visible_revelations:
             continue
-        source = item.get("source", {})
+        source = item.get("source") or {}
         if source.get("kind") == "told":
             current = build_matrix(data, item["scene"], before_order=item.get("event_order"))
             states = [
@@ -76,7 +85,10 @@ def build_review(
             "source": item["source"],
         }
         for item in data.get("knowledge", [])
-        if item["scene"] in visible and "source" in item
+        if item["scene"] in visible
+        and item["revelation"] in visible_revelations
+        and "source" in item
+        and item["source"] is not None
     ]
     report["scene_grid"] = snapshots
     if alternate is not None:

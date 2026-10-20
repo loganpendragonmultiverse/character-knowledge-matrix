@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,11 @@ def _id_map(items: Any, label: str) -> dict[str, dict[str, Any]]:
         raise TypeError(f"{label} must be a non-empty list")
     result = {}
     for item in items:
-        if not isinstance(item, dict) or not isinstance(item.get("id"), str) or not item["id"]:
+        if (
+            not isinstance(item, dict)
+            or not isinstance(item.get("id"), str)
+            or not item["id"].strip()
+        ):
             raise TypeError(f"each {label} item requires a string id")
         if item["id"] in result:
             raise ValueError(f"duplicate {label} id: {item['id']}")
@@ -40,16 +45,29 @@ def validate_event_order(data: dict[str, Any]) -> None:
             raise ValueError("event_order must be unique across knowledge and uses in a scene")
 
 
-def load_project(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or data.get("version") != 1:
+def validate_project(data: dict[str, Any]) -> None:
+    if (
+        not isinstance(data, dict)
+        or type(data.get("version")) is not int
+        or data.get("version") != 1
+    ):
         raise ValueError("project must be a version 1 object")
     scenes = _id_map(data.get("scenes"), "scenes")
     characters = _id_map(data.get("characters"), "characters")
     revelations = _id_map(data.get("revelations"), "revelations")
+    for character in characters.values():
+        if "name" in character and (
+            not isinstance(character["name"], str) or not character["name"].strip()
+        ):
+            raise ValueError("character name must be non-empty text")
+    for scene in scenes.values():
+        if "title" in scene and not isinstance(scene["title"], str):
+            raise ValueError("scene title must be text")
     for revelation in revelations.values():
-        if revelation.get("introduced_scene") not in scenes or not isinstance(
-            revelation.get("summary"), str
+        if (
+            not isinstance(revelation.get("introduced_scene"), str)
+            or revelation.get("introduced_scene") not in scenes
+            or not isinstance(revelation.get("summary"), str)
         ):
             raise ValueError(
                 f"revelation {revelation['id']} requires a summary and valid introduced_scene"
@@ -61,15 +79,41 @@ def load_project(path: Path) -> dict[str, Any]:
         for record in records:
             if (
                 not isinstance(record, dict)
+                or not isinstance(record.get("character"), str)
                 or record.get("character") not in characters
+                or not isinstance(record.get("revelation"), str)
                 or record.get("revelation") not in revelations
+                or not isinstance(record.get("scene"), str)
                 or record.get("scene") not in scenes
             ):
                 raise ValueError(f"{label} record has an unknown character, revelation, or scene")
-            if label == "knowledge" and record.get("state", "confirmed") not in STATES:
+            for field in ("evidence", "note"):
+                if field in record and not isinstance(record[field], str):
+                    raise ValueError(f"{field} must be text")
+            if label == "knowledge" and (
+                not isinstance(record.get("state", "confirmed"), str)
+                or record.get("state", "confirmed") not in STATES
+            ):
                 raise ValueError("knowledge record has an unsupported state")
     validate_event_order(data)
+
+
+def load_project(path: Path) -> dict[str, Any]:
+    data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    validate_project(data)
     return data
+
+
+def _evidence(record: dict[str, Any]) -> str | None:
+    primary = record.get("evidence")
+    if isinstance(primary, str) and primary.strip():
+        return primary
+    source = record.get("source")
+    if isinstance(source, dict):
+        nested = source.get("evidence")
+        if isinstance(nested, str) and nested.strip():
+            return nested
+    return None
 
 
 def build_matrix(
@@ -79,7 +123,7 @@ def build_matrix(
     *,
     before_order: int | None = None,
 ) -> dict[str, Any]:
-    validate_event_order(data)
+    validate_project(data)
     scene_ids = [item["id"] for item in data["scenes"]]
     if through is not None and through not in scene_ids:
         raise ValueError(f"unknown scene: {through}")
@@ -89,10 +133,11 @@ def build_matrix(
     if compare_from is not None and scene_ids.index(compare_from) > boundary:
         raise ValueError("comparison start must not follow through scene")
     visible = set(scene_ids[: boundary + 1])
+    visible_revelations = {r["id"] for r in data["revelations"] if r["introduced_scene"] in visible}
     history: dict[tuple[str, str], list[dict[str, Any]]] = {}
     issues = []
     for record in data.get("knowledge", []):
-        if record["scene"] not in visible:
+        if record["scene"] not in visible or record["revelation"] not in visible_revelations:
             continue
         if (
             before_order is not None
@@ -103,7 +148,7 @@ def build_matrix(
         entry = {
             **record,
             "state": record.get("state", "confirmed"),
-            "evidence": record.get("evidence"),
+            "evidence": _evidence(record),
         }
         if entry["state"] in {"confirmed", "corrected"} and not entry.get("evidence"):
             issues.append(
@@ -161,7 +206,7 @@ def build_matrix(
             }
         )
     for usage in data.get("uses", []):
-        if usage["scene"] not in visible:
+        if usage["scene"] not in visible or usage["revelation"] not in visible_revelations:
             continue
         current = state_at(
             (usage["character"], usage["revelation"]),
@@ -212,32 +257,69 @@ def build_matrix(
     }
 
 
+def _md(value: str) -> str:
+    return (
+        escape(value)
+        .replace("\\", "\\\\")
+        .replace("|", "\\|")
+        .replace("`", "\\`")
+        .replace("*", "\\*")
+        .replace("_", "\\_")
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+        .replace("\n", " ")
+        .replace("\r", " ")
+    )
+
+
 def render_markdown(report: dict[str, Any]) -> str:
-    headers = [character["name"] for character in report["characters"]]
+    headers = [_md(character.get("name", character["id"])) for character in report["characters"]]
     lines = [
         "# Character Knowledge Matrix",
         "",
-        f"Through **{report['through']}** - Continuity issues: **{report['issue_count']}**",
+        f"Through **{_md(report['through'])}** - Continuity issues: **{report['issue_count']}**",
         "",
         "| Revelation | " + " | ".join(headers) + " |",
         "|---|" + "---|" * len(headers),
     ]
     for row in report["rows"]:
         lines.append(
-            f"| {row['summary']} | "
+            f"| {_md(row['summary'])} | "
             + " | ".join(item["state"] for item in row["characters"])
             + " |"
         )
     if report["changes"]:
         lines.extend(["", "## Scene Comparison", ""])
         lines.extend(
-            f"- `{x['character']}` / `{x['revelation']}`: {x['from']} -> {x['to']}"
+            f"- {_md(x['character'])} / {_md(x['revelation'])}: {x['from']} -> {x['to']}"
             for x in report["changes"]
         )
     if report["issues"]:
         lines.extend(["", "## Review", ""])
         lines.extend(
-            f"- **{item['type']}** in `{item['scene']}`: {item['reason']}"
+            f"- **{item['type']}** in {_md(item['scene'])}: {item['reason']}"
             for item in report["issues"]
         )
+    if report.get("source_issues"):
+        lines.extend(["", "## Knowledge source review", ""])
+        lines.extend(
+            f"- **{item['type']}** in {_md(item['scene'])}: {_md(item['reason'])}"
+            for item in report["source_issues"]
+        )
+    comparison = report.get("alternate_comparison")
+    if comparison:
+        lines.extend(
+            [
+                "",
+                "## Alternate order: full-story comparison",
+                "",
+                f"{len(comparison['added'])} added continuity warnings; {len(comparison['removed'])} removed.",
+                "",
+            ]
+        )
+        for label in ("added", "removed"):
+            lines.extend(
+                f"- {label}: {_md(item['scene'])} / {_md(item['reason'])}"
+                for item in comparison[label]
+            )
     return "\n".join(lines).rstrip() + "\n"
