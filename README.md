@@ -48,8 +48,10 @@ semantics, including same-scene learning. Scene boundaries still hide later even
 `--alternate-order` explicitly compares full-story warnings and retains each scene's
 internal order. Records remain author assertions, with no prose or timing inference.
 
-## 1.3.1 input and report reliability
+## 1.3.2 input and report reliability
 
 Validate public report inputs and author display/evidence fields. Hide future revelations from early warning, source and evidence channels. Use source evidence when top-level evidence is absent, while preserving explicit top-level evidence. Include telling-source warnings and full-story alternate-order summaries in Markdown. Escape author text in Markdown, preserve fallback character IDs and create outputs exclusively, including dangling symlink refusal.
 
 Run all documented checks plus the validation/report regressions. Install both the wheel and source distribution in fresh environments and exercise every documented output format; source files must remain unchanged. Linux acceptance supplements the required GitHub Windows/macOS/Linux CI matrix.
+
+The wheel installs the README, development/testing contract, changelog and JSON examples under the installation data directory at `share/character-knowledge-matrix/`. The source distribution also includes these files in their original paths. Release acceptance compares both archives with the exact tagged files before testing fresh installations.
