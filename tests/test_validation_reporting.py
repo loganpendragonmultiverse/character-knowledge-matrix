@@ -98,3 +98,14 @@ def test_markdown_includes_source_and_alternate_review():
     assert "unconfirmed-source" in rendered
     assert "Alternate order: full-story comparison" in rendered
     assert "added continuity warnings" in rendered
+
+
+def test_source_evidence_supports_confirmed_knowledge():
+    data = sample()
+    data["knowledge"][0].pop("evidence")
+    report = build_review(data)
+    assert not report["issues"]
+    assert report["rows"][0]["characters"][0]["evidence"] == "Scene note"
+    assert "Scene note" in render_html(report)
+    data["knowledge"][0]["evidence"] = "Top-level detail"
+    assert build_review(data)["rows"][0]["characters"][0]["evidence"] == "Top-level detail"

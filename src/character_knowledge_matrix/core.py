@@ -104,6 +104,18 @@ def load_project(path: Path) -> dict[str, Any]:
     return data
 
 
+def _evidence(record: dict[str, Any]) -> str | None:
+    primary = record.get("evidence")
+    if isinstance(primary, str) and primary.strip():
+        return primary
+    source = record.get("source")
+    if isinstance(source, dict):
+        nested = source.get("evidence")
+        if isinstance(nested, str) and nested.strip():
+            return nested
+    return None
+
+
 def build_matrix(
     data: dict[str, Any],
     through: str | None = None,
@@ -136,7 +148,7 @@ def build_matrix(
         entry = {
             **record,
             "state": record.get("state", "confirmed"),
-            "evidence": record.get("evidence"),
+            "evidence": _evidence(record),
         }
         if entry["state"] in {"confirmed", "corrected"} and not entry.get("evidence"):
             issues.append(

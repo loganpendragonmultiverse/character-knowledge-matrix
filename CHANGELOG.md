@@ -2,7 +2,7 @@
 
 ## 1.3.1 - 2026-10-20
 
-- Validate public report inputs and author display/evidence fields. Hide future revelations from early warning, source and evidence channels. Include telling-source warnings and full-story alternate-order summaries in Markdown. Escape author text in Markdown, preserve fallback character IDs and create outputs exclusively, including dangling symlink refusal.
+- Validate public report inputs and author display/evidence fields. Hide future revelations from early warning, source and evidence channels. Use source evidence when top-level evidence is absent, while preserving explicit top-level evidence. Include telling-source warnings and full-story alternate-order summaries in Markdown. Escape author text in Markdown, preserve fallback character IDs and create outputs exclusively, including dangling symlink refusal.
 
 ## 1.3.0 - 2026-10-15
 
