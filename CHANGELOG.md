@@ -30,3 +30,7 @@
 - Added versioned scenes, characters, revelations, learning events, and uses.
 - Added scene-bounded knowledge matrices.
 - Added evidence-backed review flags for uses before recorded knowledge.
+
+## Unpublished verification candidate: v1.3.1
+
+The immutable v1.3.1 tag was a verification candidate, with no public GitHub release. Its wheel did not bundle the separate operating guides and examples. v1.3.2 supersedes that candidate and includes the reviewed runtime repairs together with complete installed guidance.
